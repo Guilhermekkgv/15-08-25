@@ -2102,13 +2102,36 @@ function Linux.Create(config)
             
             Slider:SetAttribute("Value", Value)
             
-            local function AnimateValueLabel()
-                spawn(function()
-                    local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-                    TweenService:Create(ValueLabel, tweenInfo, {TextSize = 16}):Play()
-                    task.wait(0.15)
-                    TweenService:Create(ValueLabel, tweenInfo, {TextSize = 14}):Play()
+            local isDraggingSlider = false
+            local animationConnection = nil
+            
+            local function StartContinuousAnimation()
+                if animationConnection then
+                    animationConnection:Disconnect()
+                end
+                
+                animationConnection = RunService.Heartbeat:Connect(function()
+                    if isDraggingSlider then
+                        local tween1 = TweenService:Create(ValueLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextSize = 16})
+                        tween1:Play()
+                        tween1.Completed:Wait()
+                        local tween2 = TweenService:Create(ValueLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextSize = 14})
+                        tween2:Play()
+                        tween2.Completed:Wait()
+                    else
+                        animationConnection:Disconnect()
+                        animationConnection = nil
+                    end
                 end)
+            end
+            
+            local function StopContinuousAnimation()
+                if animationConnection then
+                    animationConnection:Disconnect()
+                    animationConnection = nil
+                end
+                local finalTween = TweenService:Create(ValueLabel, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextSize = 14})
+                finalTween:Play()
             end
             
             local function FormatValue(value)
@@ -2151,28 +2174,27 @@ function Linux.Create(config)
                 
                 ValueLabel.Text = FormatValue(value)
                 
-                AnimateValueLabel()
                 spawn(function() Linux:SafeCallback(config.Callback, value) end)
             end
             
-            local draggingSlider = false
-            
             SliderButton.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    draggingSlider = true
+                    isDraggingSlider = true
+                    StartContinuousAnimation()
                     UpdateSlider(input.Position.X)
                 end
             end)
             
             SliderButton.InputChanged:Connect(function(input)
-                if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) and draggingSlider then
+                if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) and isDraggingSlider then
                     UpdateSlider(input.Position.X)
                 end
             end)
             
             SliderButton.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    draggingSlider = false
+                    isDraggingSlider = false
+                    StopContinuousAnimation()
                 end
             end)
             
@@ -2199,7 +2221,6 @@ function Linux.Create(config)
                 
                 ValueLabel.Text = FormatValue(newValue)
                 
-                AnimateValueLabel()
                 spawn(function() Linux:SafeCallback(config.Callback, newValue) end)
             end
             
